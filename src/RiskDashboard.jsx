@@ -30,6 +30,23 @@ const RiskDashboard = () => {
   const heatmapRef = useRef(null);
   const categoryRef = useRef(null);
 
+  // Add slight offset to overlapping points for better visibility
+  const spreadRisks = riskData.map((risk, index) => {
+    const samePosition = riskData.filter(r => 
+      r.probability === risk.probability && r.impact === risk.impact
+    );
+    if (samePosition.length > 1) {
+      const posIndex = samePosition.findIndex(r => r.id === risk.id);
+      const offset = (posIndex - (samePosition.length - 1) / 2) * 0.15;
+      return {
+        ...risk,
+        displayProbability: risk.probability + offset,
+        displayImpact: risk.impact + (posIndex % 2 === 0 ? offset * 0.5 : -offset * 0.5)
+      };
+    }
+    return { ...risk, displayProbability: risk.probability, displayImpact: risk.impact };
+  });
+
   // Get color based on risk score
   const getRiskColor = (score) => {
     if (score >= 15) return '#ef4444';
@@ -383,25 +400,25 @@ const RiskDashboard = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis 
                   type="number" 
-                  dataKey="probability" 
+                  dataKey="displayProbability" 
                   domain={[0, 6]}
                   label={{ value: 'Probability', position: 'bottom', offset: 40, style: { fontSize: 13, fontWeight: 600 } }}
                   tick={{ fontSize: 11 }}
                 />
                 <YAxis 
                   type="number" 
-                  dataKey="impact" 
+                  dataKey="displayImpact" 
                   domain={[0, 6]}
                   label={{ value: 'Impact', angle: -90, position: 'left', offset: 40, style: { fontSize: 13, fontWeight: 600 } }}
                   tick={{ fontSize: 11 }}
                 />
-                <ZAxis type="number" dataKey="score" range={[300, 1500]} />
+                <ZAxis type="number" dataKey="score" range={[400, 1800]} />
                 <Tooltip content={<CustomTooltip />} />
                 <Scatter 
-                  data={filteredRisks} 
+                  data={spreadRisks} 
                   onClick={(data) => setSelectedRisk(data)}
                 >
-                  {filteredRisks.map((entry, index) => (
+                  {spreadRisks.map((entry, index) => (
                     <Cell 
                       key={`cell-${index}`} 
                       fill={getRiskColor(entry.score)}
