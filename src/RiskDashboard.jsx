@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { BarChart, Bar, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell, ResponsiveContainer, ZAxis, PieChart, Pie } from 'recharts';
+import * as XLSX from 'xlsx';
 
 // Your 15 actual risks from the document
 const riskData = [
@@ -118,6 +119,52 @@ const RiskDashboard = () => {
     link.click();
   };
 
+  const exportExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(
+        filteredRisks.map(r => ({
+          'Risk ID': r.id,
+          Name: r.name,
+          Category: r.category,
+          Probability: r.probability,
+          Impact: r.impact,
+          Score: r.score,
+          Level: getRiskLevel(r.score),
+          Owner: r.owner,
+          Status: r.status,
+          Mitigation: r.mitigation,
+          Updated: r.updated
+        }))
+    );
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Risks');
+    XLSX.writeFile(wb, `risk_register_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const exportJSON = () => {
+    const json = JSON.stringify(filteredRisks, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'risk_register_' + new Date().toISOString().split('T')[0] + '.json';
+    link.click();
+  };
+
+  const exportBtnStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '12px 20px',
+    background: '#3b82f6',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)'
+  };
+
+
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -143,14 +190,16 @@ const RiskDashboard = () => {
         {/* Header */}
         <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <h1 style={{ fontSize: '32px', fontWeight: 'bold', color: '#1f2937', marginBottom: '8px' }}>
+            <h1 style={{ fontSize: '32px', fontWeight: 'bold', color: '#1f2937', marginBottom: '8px', marginTop: 0 }}>
               FinTech MVP - Risk Register
             </h1>
             <p style={{ color: '#6b7280', fontSize: '16px' }}>Total Risks: {riskData.length} | Showing: {filteredRisks.length}</p>
           </div>
-          <button onClick={exportCSV} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)' }}>
-            ⬇ Export CSV
-          </button>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button onClick={exportCSV} style={exportBtnStyle}>Export CSV</button>
+            <button onClick={exportExcel} style={{ ...exportBtnStyle, background: '#22c55e' }}>Export Excel</button>
+            <button onClick={exportJSON} style={{ ...exportBtnStyle, background: '#f59e0b' }}>Export JSON</button>
+          </div>
         </div>
 
         {/* Stats */}
