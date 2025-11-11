@@ -2,24 +2,9 @@ import React, { useState, useRef } from 'react';
 import { BarChart, Bar, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell, ResponsiveContainer, ZAxis, PieChart, Pie } from 'recharts';
 import * as XLSX from 'xlsx';
 
-// Your 15 actual risks from the document
-const riskData = [
-  { id: 'R01', name: 'KYC vendor API downtime blocks user registration', category: 'Integration', probability: 3, impact: 5, score: 15, owner: 'Backend Lead', status: 'OPEN', mitigation: 'Implement fallback to manual KYC review queue. Set up health monitoring. Have secondary vendor ready.', updated: '15/12/25' },
-  { id: 'R02', name: 'KYC document images stored insecurely', category: 'Security', probability: 2, impact: 5, score: 10, owner: 'Security Lead', status: 'OPEN', mitigation: 'Encrypt documents at rest (AES-256). Use pre-signed URLs. Auto-delete after 90 days per GDPR.', updated: '12/12/25' },
-  { id: 'R03', name: 'Poor KYC photo quality causes >30% rejection rate', category: 'Quality', probability: 4, impact: 3, score: 12, owner: 'Frontend Lead', status: 'OPEN', mitigation: 'Real-time image quality validation. Live camera feedback. Provide example images.', updated: '11/12/25' },
-  { id: 'R04', name: 'Users abandon registration at KYC step (30-40% drop-off)', category: 'Business', probability: 4, impact: 4, score: 16, owner: 'Product Owner', status: 'OPEN', mitigation: 'Add progress indicator. Explain why KYC required. Show trust badges. A/B test delayed KYC.', updated: '14/12/25' },
-  { id: 'R05', name: 'OTP SMS delivery delays (2-5 minutes)', category: 'Technical', probability: 3, impact: 3, score: 9, owner: 'Backend Lead', status: 'WATCH', mitigation: 'Use Twilio premium routing. Extend OTP validity to 10 min. Provide email OTP alternative.', updated: '13/01/26' },
-  { id: 'R06', name: 'External Transfer API downtime prevents bank transfers', category: 'Integration', probability: 3, impact: 5, score: 15, owner: 'Backend Lead', status: 'OPEN', mitigation: 'Implement fallback queue. Monitor API with alerts. SLA with payment provider. Secondary provider.', updated: '06/02/26' },
-  { id: 'R07', name: 'Biometric data could be extracted or spoofed', category: 'Security', probability: 2, impact: 5, score: 10, owner: 'Security Lead', status: 'OPEN', mitigation: 'Store only in device secure enclave. Anti-spoofing detection. Fallback to password/2FA.', updated: '28/03/26' },
-  { id: 'R08', name: 'Live chat delivers delayed/out-of-order messages under load', category: 'Quality', probability: 3, impact: 4, score: 12, owner: 'Frontend Lead', status: 'OPEN', mitigation: 'Load test >500 concurrent users. Optimize WebSocket. Message queue with ordering guarantees.', updated: '31/03/26' },
-  { id: 'R09', name: 'Users may not adopt biometric/2FA due to complexity', category: 'Business', probability: 3, impact: 3, score: 9, owner: 'Product Owner', status: 'WATCH', mitigation: 'Clear setup instructions. Guided tutorials. Allow password fallback. Highlight security benefits.', updated: '28/02/26' },
-  { id: 'R10', name: 'P2P transfer atomic transaction deadlocks under peak load', category: 'Technical', probability: 3, impact: 4, score: 12, owner: 'Backend Lead', status: 'WATCH', mitigation: 'Proper DB transaction isolation. Monitor deadlock occurrences. Optimize transaction order.', updated: '03/02/26' },
-  { id: 'R11', name: 'Biometric auth fails on older devices (15% of users)', category: 'Technical', probability: 3, impact: 3, score: 9, owner: 'Frontend Lead', status: 'WATCH', mitigation: 'Detect capability on app start. Always provide OTP fallback. Document minimum requirements.', updated: '05/03/26' },
-  { id: 'R12', name: 'Live chat backend fails under peak load (>1000 sessions)', category: 'Technical', probability: 4, impact: 4, score: 16, owner: 'Backend Lead', status: 'OPEN', mitigation: 'Load test backend. Message queue with retry. WebSocket cluster + Redis pub/sub.', updated: '02/04/26' },
-  { id: 'R13', name: 'Chat messages stored without encryption expose data', category: 'Security', probability: 3, impact: 5, score: 15, owner: 'Security Lead', status: 'OPEN', mitigation: 'Encrypt at rest and in transit (TLS 1.3, AES-256). Access logs. 90-day retention.', updated: '13/04/26' },
-  { id: 'R14', name: 'Push notifications expose sensitive info on lock screens', category: 'Security', probability: 3, impact: 4, score: 12, owner: 'Product Owner', status: 'OPEN', mitigation: 'Obfuscate details. Add "Hide sensitive info" setting. Show generic messages only.', updated: '02/04/26' },
-  { id: 'R15', name: 'Unauthorized operator access to customer profiles', category: 'Security', probability: 3, impact: 5, score: 15, owner: 'Security Lead', status: 'OPEN', mitigation: 'Role-based access control. Mask sensitive fields (PAN, address). Log all profile views.', updated: '28/04/26' },
-];
+import { riskData } from './riskData';
+
+import { exportCSV, exportExcel, exportJSON } from './exportUtils';
 
 const RiskDashboard = () => {
   const [selectedRisk, setSelectedRisk] = useState(null);
@@ -54,7 +39,6 @@ const RiskDashboard = () => {
     return categoryMatch && statusMatch && searchMatch;
   });
 
-  // Spread overlapping points for better visibility
   const spreadRisks = filteredRisks.map((risk, index, arr) => {
     const samePos = arr.filter(r => r.probability === risk.probability && r.impact === risk.impact);
     if (samePos.length > 1) {
@@ -88,66 +72,11 @@ const RiskDashboard = () => {
     };
   }).filter(c => c.low + c.medium + c.high + c.critical > 0);
 
-  // Status pie chart (filtered data)
   const statusData = [
     { name: 'OPEN', value: filteredRisks.filter(r => r.status === 'OPEN').length, color: '#f59e0b' },
     { name: 'WATCH', value: filteredRisks.filter(r => r.status === 'WATCH').length, color: '#3b82f6' },
     { name: 'STABLE', value: filteredRisks.filter(r => r.status === 'STABLE').length, color: '#10b981' },
   ].filter(item => item.value > 0);
-
-  // Export CSV
-  const exportCSV = () => {
-    const headers = ['Risk ID', 'Name', 'Category', 'Prob', 'Impact', 'Score', 'Level', 'Owner', 'Status', 'Mitigation', 'Updated'];
-    const rows = filteredRisks.map(r => [
-      r.id, 
-      '"' + r.name + '"', 
-      r.category, 
-      r.probability, 
-      r.impact, 
-      r.score, 
-      getRiskLevel(r.score), 
-      r.owner, 
-      r.status, 
-      '"' + r.mitigation + '"',
-      r.updated
-    ]);
-    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'risk_register_' + new Date().toISOString().split('T')[0] + '.csv';
-    link.click();
-  };
-
-  const exportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(
-        filteredRisks.map(r => ({
-          'Risk ID': r.id,
-          Name: r.name,
-          Category: r.category,
-          Probability: r.probability,
-          Impact: r.impact,
-          Score: r.score,
-          Level: getRiskLevel(r.score),
-          Owner: r.owner,
-          Status: r.status,
-          Mitigation: r.mitigation,
-          Updated: r.updated
-        }))
-    );
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Risks');
-    XLSX.writeFile(wb, `risk_register_${new Date().toISOString().split('T')[0]}.xlsx`);
-  };
-
-  const exportJSON = () => {
-    const json = JSON.stringify(filteredRisks, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'risk_register_' + new Date().toISOString().split('T')[0] + '.json';
-    link.click();
-  };
 
   const exportBtnStyle = {
     display: 'flex',
@@ -196,9 +125,17 @@ const RiskDashboard = () => {
             <p style={{ color: '#6b7280', fontSize: '16px' }}>Total Risks: {riskData.length} | Showing: {filteredRisks.length}</p>
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button onClick={exportCSV} style={exportBtnStyle}>Export CSV</button>
-            <button onClick={exportExcel} style={{ ...exportBtnStyle, background: '#22c55e' }}>Export Excel</button>
-            <button onClick={exportJSON} style={{ ...exportBtnStyle, background: '#f59e0b' }}>Export JSON</button>
+            <button onClick={() => exportCSV(filteredRisks, getRiskLevel)} style={exportBtnStyle}>
+              Export CSV
+            </button>
+
+            <button onClick={() => exportExcel(filteredRisks, getRiskLevel)} style={{ ...exportBtnStyle, background: '#22c55e' }}>
+              Export Excel
+            </button>
+
+            <button onClick={() => exportJSON(filteredRisks)} style={{ ...exportBtnStyle, background: '#f59e0b' }}>
+              Export JSON
+            </button>
           </div>
         </div>
 
